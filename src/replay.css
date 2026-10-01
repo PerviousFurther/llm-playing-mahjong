@@ -1,0 +1,16 @@
+.scene-replay-controls { position: fixed; z-index: 12; right: 24px; bottom: 18px; width: min(580px, calc(100vw - 48px)); padding: 16px 20px; border: 1px solid #a7c4ae55; border-radius: 20px; background: #1c302bed; box-shadow: 0 8px 30px #0005; backdrop-filter: blur(14px); }
+.scene-replay-controls .modal-heading { margin: 0 0 12px; }
+.scene-replay-controls .modal-heading h2 { font-size: 20px; margin: 4px 0; }
+.scene-replay-controls .modal-heading small { display: none; }
+.scene-replay-controls .panel-back { float: right; position: relative; z-index: 1; }
+.replay-selector, .replay-controls, .replay-caption { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.replay-selector select { flex: 1; min-width: 0; }
+.replay-import { cursor: pointer; white-space: nowrap; }
+.replay-import input { display: none; }
+.replay-controls { justify-content: center; flex-wrap: wrap; }
+.replay-controls select { width: auto; }
+.replay-progress { width: 100%; accent-color: #a4dcc4; }
+.replay-caption { justify-content: space-between; color: #bed4c9; font-size: 13px; margin-bottom: 0; }
+.replaying .my-area, .replaying .table-caption { display: none; }
+.replaying .scene-chat { bottom: 24px; }
+@media (max-width: 650px) { .scene-replay-controls { right: 10px; bottom: 10px; width: calc(100vw - 20px); padding: 12px; } }
