@@ -1,0 +1,6 @@
+[submodule "vendor/majiang-core"]
+	path = vendor/majiang-core
+	url = https://github.com/kobalab/majiang-core.git
+[submodule "public/tiles"]
+	path = public/tiles
+	url = https://github.com/FluffyStuff/riichi-mahjong-tiles.git

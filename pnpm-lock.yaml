@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@kobalab/majiang-core':
-        specifier: ^1.4.1
-        version: 1.4.1
+        specifier: workspace:*
+        version: link:vendor/majiang-core
       '@modelcontextprotocol/sdk':
         specifier: ^1.31.0
         version: 1.31.0(zod@4.6.5)
@@ -195,8 +195,6 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@kobalab/majiang-core@1.4.1':
-    resolution: {integrity: sha512-60jLSDCpSEy6gZK+uBoH7JRc1epzJWSzfh94LiZllLmPW8UJ+f9A8m74c8d9mMv+LVbnxKkg8TC86sKNqaD6VQ==}
 
   '@modelcontextprotocol/sdk@1.31.0':
     resolution: {integrity: sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw==}
@@ -906,7 +904,6 @@ snapshots:
     dependencies:
       hono: 4.13.11
 
-  '@kobalab/majiang-core@1.4.1': {}
 
   '@modelcontextprotocol/sdk@1.31.0(zod@4.6.5)':
     dependencies:

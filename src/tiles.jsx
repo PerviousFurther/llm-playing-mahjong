@@ -11,7 +11,7 @@ export function tileFile(code) {
 }
 export function Tile({ code = '_', small = false, selected = false, sideways = false, drawn = false, onClick, onHover, disabled = false }) {
   const classes = `tile ${small ? 'small' : ''} ${selected ? 'selected' : ''} ${sideways ? 'sideways' : ''} ${drawn ? 'drawn' : ''}`;
-  const pic = <><span className="tile-edge tile-edge-top" aria-hidden="true" /><span className="tile-edge tile-edge-right" aria-hidden="true" /><span className="tile-edge tile-edge-bottom" aria-hidden="true" /><span className="tile-edge tile-edge-left" aria-hidden="true" /><img src={`/tiles/${tileFile(code)}.svg`} alt={tileName(code)} draggable="false" /></>;
+  const pic = <><span className="tile-edge tile-edge-top" aria-hidden="true" /><span className="tile-edge tile-edge-right" aria-hidden="true" /><span className="tile-edge tile-edge-bottom" aria-hidden="true" /><span className="tile-edge tile-edge-left" aria-hidden="true" /><img src={`/tiles/Regular/${tileFile(code)}.svg`} alt={tileName(code)} draggable="false" /></>;
   return onClick ? <button className={classes} title={tileName(code)} onClick={onClick} onMouseEnter={() => onHover?.(code)} onMouseLeave={() => onHover?.(null)} onFocus={() => onHover?.(code)} onBlur={() => onHover?.(null)} disabled={disabled} aria-pressed={selected}>{pic}</button>
     : <span className={classes} title={tileName(code)}>{pic}</span>;
 }
