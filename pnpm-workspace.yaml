@@ -1,2 +1,5 @@
+packages:
+  - 'vendor/majiang-core'
+
 allowBuilds:
   esbuild: true

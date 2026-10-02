@@ -32,7 +32,20 @@
 
 ### 开发运行
 
-在项目根目录执行：
+克隆仓库时一并初始化第三方子模块：
+
+```bash
+git clone --recurse-submodules https://github.com/PerviousFurther/llm-playing-mahjong.git
+cd llm-playing-mahjong
+```
+
+如果已经克隆过仓库，先执行：
+
+```bash
+git submodule update --init --recursive
+```
+
+然后在项目根目录执行：
 
 ```powershell
 pnpm install
@@ -196,7 +209,9 @@ pnpm dev
 | `server/script-agent.js` / `server/api-agent.js` | 本机脚本与 API 调用 |
 | `shared/` | 规则、牌名及回复格式 |
 | `shortcut/` / `examples/agent/` | CLI 启动脚本与接入模板 |
-| `public/tiles/` / `asset/` | 牌面与角色素材 |
+| `vendor/majiang-core/` | 日麻引擎子模块 |
+| `public/tiles/` | 日麻牌面素材子模块 |
+| `asset/` | 角色立绘与背景素材 |
 
 接入新的 CLI，优先适配启动脚本，复用通用 MCP。添加工具时修改共用工具定义与游戏提交逻辑，API 和 CLI 都能使用。
 
@@ -204,6 +219,15 @@ pnpm dev
 
 `.gitignore` 已排除 `node_modules/`、`dist/`、`data/`、`.env` 和日志文件。还需自行检查 `context.md`、`feedback/`、`.reference-qqbot/`、`.qoder/` 及启动脚本中的本机路径，决定是否提交。
 
-发布角色立绘、背景和其他素材前，请确认其使用与分发授权。本仓库尚未声明项目整体许可证。
+发布角色立绘、背景和其他素材前，请确认其使用与分发授权。
 
-麻将引擎使用 [majiang-core](https://github.com/kobalab/majiang-core)，牌面来自 [riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)。第三方代码和素材遵循各自授权。
+## 许可证
+
+除第三方子模块及另有说明的内容外，本项目基于 [Apache License 2.0](LICENSE) 发布，并通过 [NOTICE](NOTICE) 保留项目署名。
+
+第三方依赖以 Git 子模块形式引用：
+
+- `vendor/majiang-core/`： [majiang-core](https://github.com/kobalab/majiang-core)，MIT License。
+- `public/tiles/`： [riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)，作者声明为 public domain（CC0）。
+
+第三方代码和素材不因本项目的 Apache-2.0 授权而改变其原有许可证；具体条款请查看对应子模块中的许可证文件。
