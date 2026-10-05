@@ -1,0 +1,11 @@
+.model-service-status { padding: 16px; margin: 14px 0; border: 1px solid #91bba455; border-radius: 16px; background: #142c252e; }
+.model-service-heading, .model-service-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.model-service-state { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #b1c4b8; }
+.model-service-state i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.service-running { color: #91d7b2; }.service-error { color: #f0afa1; }.service-starting, .service-stopping { color: #e3c997; }
+.model-service-address { margin-top: 12px; overflow-wrap: anywhere; }.model-service-address strong, .model-service-address small { display: block; }
+.model-service-address small, .model-service-owners, .model-service-actions small { font-size: 12px; color: #b1c4b8; }
+.model-service-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.model-service-metrics dt { font-size: 11px; color: #a2b5a9; }.model-service-metrics dd { margin: 3px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.model-service-actions button { flex-shrink: 0; }.model-service-status .form-note { margin-bottom: 0; }
+@media (max-width: 500px) { .model-service-metrics { grid-template-columns: 1fr; } }

@@ -1,0 +1,14 @@
+.three-table { position: absolute; left: 0; right: 0; bottom: 1%; height: 78%; }
+.three-table > canvas { position: absolute; inset: 0; z-index: 1; display: block; width: 100%; height: 100%; touch-action: manipulation; }
+.immersive .three-table .table-center { z-index: 2; left: var(--table-center-x, 50%); top: var(--table-center-y, 50%); }
+.three-table .hand-hint { z-index: 2; left: var(--hand-left, 25%); top: calc(var(--hand-top, 90%) - 28px); bottom: auto; }
+.table-actions { position: absolute; z-index: 7; left: var(--actions-left, 10px); top: var(--actions-top, 80%); transform: translateY(-100%); display: flex; flex-direction: column-reverse; align-items: stretch; gap: 8px; max-width: 100px; max-height: 75%; overflow: auto; scrollbar-width: thin; }
+.table-actions button { padding: 9px 14px; border-radius: 12px; box-shadow: 0 5px 14px #17100966; white-space: normal; }
+.table-actions .gold.chosen { background: #69512a; border-color: #f4d08f; }
+.three-table.actions-above:has(.table-actions) .hand-hint { display: none; }
+.three-error { position: absolute; z-index: 4; top: 40%; left: 50%; transform: translateX(-50%); padding: 16px; border-radius: 12px; background: #26352ff5; display: grid; gap: 10px; max-width: 90%; }
+.keyboard-hand { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.keyboard-hand:focus-within { z-index: 4; left: var(--hand-left, 20%); top: calc(var(--hand-top, 85%) - 65px); width: min(520px, 75%); height: auto; clip-path: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; background: #233c35f5; border-radius: 10px; }
+.keyboard-hand button { border: 1px solid #91b9a3; border-radius: 6px; background: #244540; color: #e3f1e9; padding: 5px 8px; font-size: 11px; }
+.keyboard-hand button:disabled { display: none; }
+@media (max-width: 700px) { .three-table { height: 66%; bottom: 1%; } .three-table .hand-hint { font-size: 10px; } }

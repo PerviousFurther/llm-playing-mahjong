@@ -2,27 +2,33 @@ import { matchLabel, matchLength } from '../shared/rules.js';
 
 // Model input only. Full rules and history remain available to the UI and archives.
 export function compactRules(r) {
-  return `日麻，25000 点起始，${matchLabel(r)}${matchLength(r) ? '，和牌、流局均计一局，连庄也计数' : ''}。${r.redFives ? '各色一张赤五' : '无赤五'}；${r.openTanyao ? '允许食断' : '禁止食断'}；最多 ${r.multipleRon} 人同时荣和。
-和牌须有役，宝牌不是役；振听不可荣和。吃仅限上家，碰杠可响应其他家。副露会破坏门前；立直须门前听牌并支付 1000 点，之后通常摸切。禁止食替。
-引擎负责动作合法性与计分：只选 legalActions 中的参数；canWin=true 才能有效和牌。无效和牌请求会被拒绝。无回合时限。`;
+  return `Riichi Mahjong: ${matchLabel(r)}${matchLength(r) ? ' (wins, draws, and dealer repeats count towards hand limits)' : ''}. ${r.redFives ? 'Red 5s enabled' : 'No red 5s'}; ${r.openTanyao ? 'Open Tanyao allowed' : 'Closed Tanyao only'}; max ${r.multipleRon} Ron winner(s).
+Rules: Valid Yaku required to win (Dora is not Yaku). Furiten blocks Ron. Chii from kamicha (left player) only; Pon/Kan from any player. Melding opens hand. Riichi requires closed Tenpai and enforces auto-discards. Kuikae (swap calling) is forbidden.
+Engine: Choose only from legalActions; win requires canWin=true. Untimed turns.`;
 }
 
 const pick = (value, keys) => Object.fromEntries(keys.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
-const eventInput = event => ({ type: event.type, data: event.type === 'hule'
+const eventInput = event => ({ id: event.id, at: event.at, type: event.type, data: event.type === 'hule'
   ? pick(event.data, ['l', 'baojia', 'defen', 'fanshu', 'fu']) : event.data });
 
-export function agentContext(context) {
-  const source = context.state;
-  const events = context.publicContext.filter(e => e.type !== 'rules');
-  const handStart = events.findLastIndex(e => e.type === 'hand_started');
-  const handEvents = events.slice(Math.max(0, handStart));
-  // One table circuit: the current/most recent draw and the three preceding draws.
-  const draws = handEvents.filter(e => e.type === 'draw');
-  const cutoff = draws.at(-4)?.id ?? handEvents[0]?.id ?? 0;
-  const recent = list => list.filter(e => e.id >= cutoff).slice(-32).map(eventInput);
-  const state = pick(source, ['version', 'started', 'paused', 'matchOver', 'matchHand', 'handLimit', 'phase', 'viewer', 'round', 'handNumber', 'honba', 'sticks', 'remaining', 'dora', 'activeSeat', 'turn', 'canWin', 'waiting', 'expressionOptions', 'aborted']);
-  state.seats = source.seats.map(seat => pick(seat, ['id', 'name', 'type', 'wind', 'score', 'hand', 'handCount', 'drawn', 'melds', 'discards', 'riichi', 'revealed']));
-  state.legalActions = source.legalActions.map(action => pick(action, ['action', 'value']));
-  if (source.lastResult) state.lastResult = pick(source.lastResult, ['kind', 'winner', 'seat', 'name', 'reason', 'baojia', 'defen', 'fanshu', 'fu']);
-  return { state, publicContext: recent(handEvents), privateContext: recent(context.privateContext) };
+export function turnInfo(context) {
+  const s = context.state;
+  return { ...pick(s, ['version', 'matchHand', 'round', 'handNumber', 'honba', 'phase', 'viewer', 'turn', 'remaining', 'dora', 'canWin', 'paused', 'matchOver']),
+    legalActions: s.legalActions.map(a => pick(a, ['action', 'value'])),
+    lastEvent: context.publicContext.filter(e => !['rules', 'chat'].includes(e.type)).slice(-1).map(eventInput)[0] };
+}
+
+export function messageInfo(context, after = 0, limit = 8) {
+  const available = [...context.publicContext, ...context.privateContext].filter(e => e.type === 'chat');
+  const events = [...new Map(available.map(e => [e.id, e])).values()].filter(e => e.id > after).sort((a, b) => a.id - b.id);
+  const page = after ? events.slice(0, limit) : events.slice(-limit);
+  return { messages: page.map(eventInput), nextAfter: page.at(-1)?.id ?? after, hasMore: page.length > 0 && events.at(-1).id > page.at(-1).id, note: '仅返回当前可见的近期聊天，非完整聊天档案。' };
+}
+
+export function initialContext(context, mode) {
+  const s = context.state;
+  const state = turnInfo(context);
+  state.seats = s.seats.map(seat => pick(seat, ['id', 'name', 'wind', 'score', 'riichi']));
+  if (['decision', 'advice'].includes(mode)) state.self = pick(s.seats[s.viewer], ['hand', 'drawn', 'melds']);
+  return { state, memory: context.memory || null, ...messageInfo(context, 0, 4) };
 }

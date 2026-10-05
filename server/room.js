@@ -1,7 +1,7 @@
 import Majiang from '@kobalab/majiang-core';
-import { randomBytes, createHash } from 'node:crypto';
 import { DEFAULT_RULES, validateRules, coreRules, englishRules, matchLength } from '../shared/rules.js';
 import { expressions, expressionAliases, bubbleDuration } from '../shared/agent.js';
+import { elapsedTime } from '../shared/event-time.js';
 
 const clone = x => JSON.parse(JSON.stringify(x));
 const winds = ['东', '南', '西', '北'];
@@ -24,34 +24,28 @@ export class Room {
     this.expressionOptions = expressionOptions; this.expressionTimers = new Map(); this.aborted = false;
     this.rules = { ...DEFAULT_RULES }; this.version = 0; this.eventId = 0;
     this.events = []; this.publicChatEvents = []; this.privateEvents = Array.from({ length: 4 }, () => []); this.coachEvents = [];
+    this.memories = {};
     this.seats = ['你', '青竹', '白露', '晚风'].map((name, id) => ({ id, name, type: id ? 'bot' : 'human', expression: 'idle' }));
-    this.tokens = this.seats.map(() => randomBytes(24).toString('hex'));
-    this.acknowledgedRules = Array(4).fill(null);
     this.pending = new Map(); this.processed = new Map(); this.paused = false;
     this.revealed = []; this.game = null; this.lastResult = null; this.matchOver = false;
-    this.replayId = null; this.completedAt = null;
+    this.replayId = null; this.completedAt = null; this.matchStartedAt = null;
   }
   event(type, data, owner = null) {
-    const e = { id: ++this.eventId, type, data: clone(data), at: new Date().toISOString() };
-    (owner === null ? this.events : this.privateEvents[owner]).push(e);
+    const at = new Date().toISOString();
+    const e = { id: ++this.eventId, type, data: clone(data), at, elapsed: elapsedTime(at, this.matchStartedAt) };
+    (owner === null ? this.events : owner === 'coach' ? this.coachEvents : this.privateEvents[owner]).push(e);
     return e;
   }
   changed() { this.persist(this); this.onChange(); }
   ruleText() { return englishRules(this.rules, this.game?._rule || Majiang.rule(coreRules(this.rules))); }
-  ruleId() { return createHash('sha256').update(this.ruleText()).digest('hex'); }
-  acknowledgeRules(id, ruleId) {
-    if (!this.game || this.matchOver) throw new Error('请先开局');
-    if (ruleId !== this.ruleId()) throw new Error('规则版本不匹配，请重新读取上下文');
-    this.acknowledgedRules[id] = ruleId; this.changed();
-    return { accepted: true, ruleId };
-  }
   start(input = {}) {
     if (this.game && !this.matchOver) throw new Error('当前对局尚未结束');
     this.rules = validateRules(input); this.aborted = false; this.clearExpressions(); this.matchOver = false; this.paused = false;
     this.replayId = null; this.completedAt = null;
+    this.matchStartedAt = new Date().toISOString();
     this.events = []; this.privateEvents = Array.from({ length: 4 }, () => []); this.coachEvents = [];
+    this.memories = {};
     this.pending.clear(); this.processed.clear(); this.lastResult = null; this.revealed = [];
-    this.acknowledgedRules = Array(4).fill(null);
     this.game = new Majiang.Game([], () => { this.matchOver = true; this.changed(); }, Majiang.rule(coreRules(this.rules)), '雀伴');
     this.game.model.player = this.seats.map(s => s.name);
     this.bindGame(); this.event('rules', { text: this.ruleText(), settings: this.rules });
@@ -161,7 +155,6 @@ export class Room {
     if (payload.stateVersion !== this.version) throw new Error('状态版本已过期，请重新读取牌局');
     if (this.paused) throw new Error('对局已暂停');
     if (!this.game || this.matchOver) throw new Error('请先开局');
-    if (this.seats[id].type === 'external' && this.acknowledgedRules[id] !== this.ruleId()) throw new Error('请先读取并确认本局英文规则');
     if (payload.action === 'declare_win') return this.declare(id, payload, key);
     const choices = this.pending.get(id);
     const option = choices?.find(o => o.action === payload.action && o.value === payload.value);
@@ -217,10 +210,7 @@ export class Room {
     if (typeof text !== 'string' || !text.trim() || text.length > 4000) throw new Error('消息长度需要在 1–4000 字之间');
     const data = { seat: id, speaker, text: text.trim(), target,
       ...(this.expressionOptions.includes(expression) ? { expression } : {}) };
-    const e = target === 'coach'
-      ? { id: ++this.eventId, type: 'chat', data: { seat: id, speaker, text: text.trim(), target }, at: new Date().toISOString() }
-      : this.event('chat', data, target === 'public' ? null : id);
-    if (target === 'coach') this.coachEvents.push(e);
+    const e = this.event('chat', data, target === 'public' ? null : target === 'coach' ? 'coach' : id);
     if (target === 'public') this.publicChatEvents.push(e);
     if (target.startsWith('seat:')) { const other = Number(target.slice(-1)); if (other !== id) this.privateEvents[other].push(e); }
     this.changed(); return e;
@@ -246,8 +236,7 @@ export class Room {
     }
     return {
       version: this.version, eventId: this.eventId, started: !!this.game, paused: this.paused, matchOver: this.matchOver, aborted: this.aborted, expressionOptions: this.expressionOptions,
-      matchHand: this.game?._paipu?.log.length || 0, handLimit: matchLength(this.rules),
-      ruleId: this.ruleId(), rulesAcknowledged: this.acknowledgedRules[id] === this.ruleId(),
+      matchHand: this.game?._paipu?.log.length || 0, handLimit: matchLength(this.rules), matchStartedAt: this.matchStartedAt,
       rules: this.rules, englishRules: this.ruleText(), phase: this.game?._status || 'lobby', viewer: id,
       round: m?.zhuangfeng || 0, handNumber: m?.jushu || 0, honba: m?.changbang || 0, sticks: m?.lizhibang || 0,
       remaining: m?.shan?.paishu || 0, dora: m?.shan?.baopai || [],
@@ -264,12 +253,13 @@ export class Room {
         const hand = winHand ? Majiang.Shoupai.fromString(winHand) : m?.shoupai[l];
         const revealed = this.matchOver || this.lastResult?.kind === 'win' || this.revealed.includes(s.id);
         const visible = s.id === id || revealed;
+        const tiles = handTiles(hand);
         return { ...s, wind: winds[l ?? s.id], score: m?.defen[s.id] ?? 25000,
-          hand: visible ? handTiles(hand) : [], handCount: handTiles(hand).length,
+          hand: visible ? tiles : [], handCount: tiles.length,
           handString: visible ? hand?.toString() : undefined, drawn: visible ? hand?._zimo : undefined,
           melds: hand?._fulou || [], discards: m?.he[l]?._pai || [], riichi: !!hand?.lizhi, revealed };
       }),
-      legalActions: this.pending.get(id) || [], canWin, canDeclare: canWin && this.pending.has(id),
+      legalActions: this.pending.get(id) || [], canWin,
       waiting: [...this.pending.keys()], lastResult: this.lastResult,
       publicEvents: this.events.slice(-160), ...(id === 0 ? { publicChatEvents: this.publicChatEvents.slice(-500) } : {}), privateEvents: this.privateEvents[id].slice(-100),
       ...(id === 0 && this.seats[0].type === 'human' ? { coachEvents: this.coachEvents.slice(-100) } : {})
@@ -280,28 +270,42 @@ export class Room {
     delete state.coachEvents;
     delete state.publicEvents; delete state.privateEvents; delete state.englishRules;
     delete state.publicChatEvents;
-    return { rules: this.ruleText(), state, publicContext: this.events.slice(-100),
+    return { state, memory: this.memories[`${role}:${id}`] || null, publicContext: this.events.slice(-100),
       privateContext: role === 'coach' && id === 0 ? this.coachEvents.slice(-60) : this.privateEvents[id].slice(-60) };
   }
   allPrivateEvents(limit = 160) {
     return [...new Map(this.privateEvents.flatMap(events => events.slice(-limit)).map(e => [e.id, e])).values()]
       .sort((a, b) => a.id - b.id).slice(-limit);
   }
+  updateMemory(id, role, text) {
+    if (!Number.isInteger(id) || id < 0 || id > 3 || !['player', 'coach'].includes(role) || role === 'coach' && id !== 0) throw new Error('Invalid memory owner');
+    if (typeof text !== 'string' || text.length > 1000) throw new Error('Memory must be a string of at most 1000 characters');
+    const key = `${role}:${id}`, value = text.trim();
+    if (value === (this.memories[key]?.text || '')) return { saved: false, unchanged: true };
+    const memory = { text: value, matchHand: this.game?._paipu?.log.length || 0, version: this.version };
+    if (value) this.memories[key] = memory; else delete this.memories[key];
+    const data = { seat: id, role, ...memory };
+    this.event('memory', data, role === 'coach' ? 'coach' : id);
+    this.changed();
+    return { saved: true, eventId: this.eventId, length: value.length };
+  }
   serialize() {
     const excluded = ['_players', '_view', '_callback', '_timeout_id', '_stop', '_handler'];
     const game = this.game && Object.fromEntries(Object.entries(this.game).filter(([k, v]) => !excluded.includes(k) && typeof v !== 'function'));
     return clone({ schema: 2, rules: this.rules, version: this.version, eventId: this.eventId, events: this.events, publicChatEvents: this.publicChatEvents, privateEvents: this.privateEvents, coachEvents: this.coachEvents,
-      seats: this.seats, tokens: this.tokens, acknowledgedRules: this.acknowledgedRules, revealed: this.revealed, lastResult: this.lastResult, matchOver: this.matchOver,
-      processed: [...this.processed], aborted: this.aborted, replayId: this.replayId, completedAt: this.completedAt, game });
+      seats: this.seats, memories: this.memories, revealed: this.revealed, lastResult: this.lastResult, matchOver: this.matchOver,
+      processed: [...this.processed], aborted: this.aborted, replayId: this.replayId, completedAt: this.completedAt, matchStartedAt: this.matchStartedAt, game });
   }
   restore(saved) {
     if (![1, 2].includes(saved.schema)) throw new Error('存档版本不支持');
-    for (const k of ['rules', 'version', 'eventId', 'events', 'privateEvents', 'seats', 'tokens', 'revealed', 'lastResult', 'matchOver', 'aborted']) this[k] = saved[k];
+    for (const k of ['rules', 'version', 'eventId', 'events', 'privateEvents', 'seats', 'revealed', 'lastResult', 'matchOver', 'aborted']) this[k] = saved[k];
+    this.seats = this.seats.map(seat => seat.type === 'external' ? { ...seat, type: 'bot' } : seat);
     this.rules = validateRules(this.rules); this.aborted = !!saved.aborted; this.clearExpressions();
     this.replayId = saved.replayId || null; this.completedAt = saved.completedAt || null;
+    this.matchStartedAt = saved.matchStartedAt || (saved.game ? this.events[0]?.at : null) || null;
     this.publicChatEvents = saved.publicChatEvents || this.events.filter(e => e.type === 'chat');
+    this.memories = saved.memories || {};
     this.coachEvents = saved.coachEvents || this.privateEvents[0].filter(e => e.type === 'chat' && e.data.target === 'coach');
-    this.acknowledgedRules = saved.acknowledgedRules || Array(4).fill(null);
     if (saved.schema === 1) this.privateEvents = this.privateEvents.map(events => events.filter(e => e.type !== 'chat' || e.data.target !== 'coach'));
     this.processed = new Map(saved.processed); this.paused = true;
     if (saved.game) {

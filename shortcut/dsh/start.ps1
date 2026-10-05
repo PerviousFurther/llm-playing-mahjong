@@ -2,13 +2,14 @@ $ErrorActionPreference = 'Stop'
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 [Console]::InputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
-$OutputEncoding = $utf8
+# Native pipelines also need UTF-8 in the caller scope (my-start.ps1).
+$global:OutputEncoding = $utf8
 # Optional: $env:DSH_BIN = 'path\to\dsh.ps1' | 'path\to\dsh.cmd'
 # Optional: $env:MAHJONG_DSH_PROVIDER = 'deepseek-account'
 # Optional: $env:MAHJONG_DSH_MODEL = 'deepseek-flash'
 # Optional: $env:MAHJONG_DSH_EFFORT = 'low' # off | low | high | max
 if (!$env:MAHJONG_PROMPT_FILE -or !$env:MAHJONG_MCP_CONFIG_FILE -or !$env:MAHJONG_TASK_DIR -or !$env:MAHJONG_NODE_BIN) {
-  throw '请由游戏以 MCP 工具 · 单次任务模式运行此脚本'
+  throw '请由游戏以 MCP 模式运行此脚本'
 }
 $binary = $env:DSH_BIN
 if (!$binary) {

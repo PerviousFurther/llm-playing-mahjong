@@ -1,0 +1,17 @@
+.floating-window { position: relative; }
+.floating-window.floating-window { display: flex; flex-direction: column; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow: hidden; transition: none; }
+.floating-window > .window-body { min-height: 0; min-width: 0; flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; }
+.window-heading { display: flex; align-items: center; flex-shrink: 0; gap: 8px; }
+.floating-window .window-heading, .floating-window .modal-heading { cursor: grab; touch-action: none; user-select: none; }
+.window-heading-minimal { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); z-index: 1; }
+.floating-window .window-move, .floating-window .window-resize { flex: none; padding: 0; border: 0; background: transparent; color: #b7c9bc; touch-action: none; user-select: none; }
+.floating-window .window-move { width: 44px; height: 20px; border-radius: 8px; font-size: 18px; line-height: 20px; cursor: grab; }
+.floating-window .window-move:active { cursor: grabbing; }
+.floating-window .window-resize { position: absolute; bottom: 0; right: 0; z-index: 2; width: 24px; height: 24px; border-radius: 8px 0; cursor: nwse-resize; font-size: 14px; }
+.floating-window .window-move:hover, .floating-window .window-resize:hover { background: #ffffff18; }
+.floating-window .window-move:focus-visible, .floating-window .window-resize:focus-visible { outline: 2px solid #e3c997; outline-offset: -2px; }
+.floating-window.toast { padding-top: 24px; padding-right: 26px; }
+.toast > .window-body { display: flex; gap: 15px; }
+.scene-chat > .window-body { display: flex; flex-direction: column; }
+.scene-chat > .window-heading { padding: 5px 8px; color: #ead9bb; font-size: 12px; }
+.scene-chat .chat-toggle { margin-left: auto; border: 0; background: none; padding: 6px; }

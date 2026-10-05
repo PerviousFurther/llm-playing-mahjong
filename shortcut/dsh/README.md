@@ -10,7 +10,7 @@ pnpm dev
 
 密钥通过启动游戏的终端环境或 dsh 自身凭据管理提供，不要写入仓库。已有 dsh 凭据可继续使用。
 
-点击角色 → 设置连接 → 本机 Agent 进程 → 启动脚本 → **MCP 工具 · 单次任务**，填写 `shortcut/dsh/start.ps1` 的绝对路径，保存并检查连接。Windows 也可用 `start.bat`；Linux / macOS 用 `start.sh`。将座位设为「LLM 自动游玩」后开局。
+点击角色 → 设置连接 → 本机 Agent 进程 → 启动脚本，填写 `shortcut/dsh/start.ps1` 的绝对路径，保存并检查连接。Windows 也可用 `start.bat`；Linux / macOS 用 `start.sh`。将座位设为「LLM 自动游玩」后开局。
 
 ## 模型和思考深度
 

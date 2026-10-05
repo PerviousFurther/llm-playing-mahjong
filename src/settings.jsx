@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { api } from './api.js';
 import { ConnectionSettings } from './connection-settings.jsx';
 import { Switch } from './settings-controls.jsx';
 
 export function Settings({ state, run, initialSeat, onClose, scope = 'room', initialRole = 'player' }) {
-  useEffect(() => { console.info('[设置说明]', { process: '单次脚本通过 MAHJONG_* 环境变量接收输入与输出文件路径；stdin 也包含完整提示词。接口见 docs/agent-process.md。', api: '基础地址包含版本路径，如 /v1。空密钥保留旧值。', assets: '缺少表情时使用普通立绘。', locked: '局内玩家、模型及房规锁定；立绘可随时更换。' }); }, []);
   const props = { state, run, initialSeat, initialRole, onClose };
   if (scope === 'models') return <ConnectionSettings key={`${initialRole}:${initialSeat}`} {...props} />;
   if (scope === 'room') return <RoomSettings {...props} />;
-  if (scope === 'agents') return <ExternalSettings {...props} />;
   return <MediaSettings key={scope} {...props} kind={scope === 'portrait' ? 'character' : 'background'} />;
 }
 
@@ -38,14 +36,7 @@ function MediaSettings({ state, run, initialSeat: seat, kind }) {
   return <><div className="modal-heading"><h2>{kind === 'character' ? '导入立绘' : '场景'}</h2></div><div className="settings-content">
       {kind === 'character' && <label>表情状态<select value={expression} onChange={e => setExpression(e.target.value)}>{['idle', 'thinking', ...state.expressionOptions].map(id => <option key={id} value={id}>{{ idle: '普通', thinking: '思考', hello: '打招呼', laugh: '笑', unhappy: '不开心' }[id] || id}</option>)}</select></label>}
       <label className="upload-zone"><span>＋</span><strong>{uploading ? '正在导入…' : '选择 PNG 图片'}</strong><small>最大 10 MB</small><input type="file" accept="image/png" disabled={uploading} onChange={e => upload(e.target.files[0])} /></label>
-      <div className="media-preview">{kind === 'background' ? <img src={state.media.background || '/asset/background-0.png'} alt="当前背景" /> : <img src={state.media.characters[seat]?.[expression] || state.media.characters[seat]?.idle || '/tiles/Back.svg'} alt="当前角色素材" />}</div>
+      <div className="media-preview">{kind === 'background' ? <img src={state.media.background || '/asset/background-0.png'} alt="当前背景" /> : <img src={state.media.characters[seat]?.[expression] || state.media.characters[seat]?.idle || '/tiles/Regular/Back.svg'} alt="当前角色素材" />}</div>
       {kind === 'background' && <button className="secondary" onClick={() => run(() => api('media/reset', {}))}>恢复默认场景</button>}
-    </div></>;
-}
-
-function ExternalSettings({ state, run, initialSeat: seat }) {
-  const [tokens, setTokens] = useState(null);
-  return <><div className="modal-heading"><h2>Agent 接入</h2></div><div className="settings-content"><button className="secondary" onClick={async () => { const result = await run(() => api('agent-tokens')); if (result) setTokens(result.filter(t => t.seat === seat)); }}>显示本机接入令牌</button>
-      {tokens && <div className="token-list">{tokens.map(t => <label key={t.seat}>座位 {t.seat} · {state.seats[t.seat].name}<input readOnly value={t.token} onClick={e => e.target.select()} /></label>)}</div>}
     </div></>;
 }

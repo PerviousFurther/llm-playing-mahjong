@@ -11,6 +11,18 @@
 .replay-controls select { width: auto; }
 .replay-progress { width: 100%; accent-color: #a4dcc4; }
 .replay-caption { justify-content: space-between; color: #bed4c9; font-size: 13px; margin-bottom: 0; }
-.replaying .my-area, .replaying .table-caption { display: none; }
 .replaying .scene-chat { bottom: 24px; }
+.floating-window.replay-memory { position: fixed; z-index: 14; left: 24px; top: 80px; width: min(390px, calc(100vw - 48px)); max-height: calc(100dvh - 100px); padding: 14px 18px; border: 1px solid #a7c4ae55; border-radius: 20px; background: #1c302bf5; box-shadow: 0 8px 30px #0005; color: #e5eee8; }
+.replay-memory select { width: 100%; }
+.replay-memory .window-heading { padding-right: 24px; }
+.memory-close { position: absolute; top: 8px; right: 10px; font-size: 24px; }
+.memory-current { padding: 12px; border: 1px solid #a7c4ae44; border-radius: 12px; background: #ffffff06; }
+.replay-memory pre { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 13px; line-height: 1.6; margin: 8px 0 0; }
+.memory-current small { color: #a4d1bd; }
+.memory-history { margin-top: 14px; }
+.memory-history > summary { padding: 6px 0; }
+.memory-entry { padding: 9px 0; border-top: 1px solid #a7c4ae22; }
+.memory-entry summary { cursor: pointer; font-size: 12px; }
+.memory-entry summary span { margin-left: 10px; color: #b9c9bf; }
+.memory-entry .text-button { margin-top: 8px; }
 @media (max-width: 650px) { .scene-replay-controls { right: 10px; bottom: 10px; width: calc(100vw - 20px); padding: 12px; } }

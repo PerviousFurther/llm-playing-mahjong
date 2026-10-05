@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { tileName } from './tiles.jsx';
+import { FloatingWindow } from './floating-window.jsx';
 import { api } from './api.js';
 import { ConnectionStatus } from './agent-status.jsx';
 
@@ -29,25 +30,6 @@ export function Chat({ state, run, readOnly = false }) {
     if (box) box.scrollTop = box.scrollHeight;
     followLatest.current = true; setUnread(false); setAwayFromBottom(false);
   };
-  const windowRef = useRef(null), drag = useRef(null);
-  const [position, setPosition] = useState(null);
-  const clamp = (left, top) => {
-    const box = windowRef.current.getBoundingClientRect();
-    return { left: Math.max(0, Math.min(left, window.innerWidth - box.width)), top: Math.max(0, Math.min(top, window.innerHeight - box.height)) };
-  };
-  useEffect(() => {
-    const keepVisible = () => setPosition(p => p ? clamp(p.left, p.top) : p);
-    const observer = new ResizeObserver(keepVisible); observer.observe(windowRef.current);
-    window.addEventListener('resize', keepVisible);
-    return () => { observer.disconnect(); window.removeEventListener('resize', keepVisible); };
-  }, []);
-  const startDrag = e => {
-    if (e.button !== 0) return;
-    const box = windowRef.current.getBoundingClientRect();
-    drag.current = { x: e.clientX, y: e.clientY, left: box.left, top: box.top };
-    e.currentTarget.setPointerCapture(e.pointerId); e.preventDefault();
-  };
-  const moveDrag = e => { const d = drag.current; if (d) setPosition(clamp(d.left + e.clientX - d.x, d.top + e.clientY - d.y)); };
   const publicEvents = [...new Map([...state.publicEvents, ...(state.publicChatEvents || [])].map(e => [e.id, e])).values()].sort((a, b) => a.id - b.id);
   const events = (tab === 'public' ? publicEvents : tab === 'coach' ? state.coachEvents || [] : state.privateEvents).filter(e => {
     if (tab === 'public') return e.type === 'chat' || eventText(e, state);
@@ -68,8 +50,7 @@ export function Chat({ state, run, readOnly = false }) {
     await run(() => api('chat', { text: value, target, ...(tab === 'private' ? { recipient } : {}) })); setText(''); setSending(false);
   };
   const coachStatus = state.agentStatus['coach:0'];
-  return <aside ref={windowRef} className={`chat-panel scene-chat ${expanded ? 'expanded' : 'compact'}`} style={position ? { position: 'fixed', left: position.left, top: position.top, bottom: 'auto' } : undefined}>
-    <div className="chat-window-heading"><button className="chat-drag-handle" aria-label="拖动聊天窗口" title="拖动聊天窗口" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onKeyDown={e => { if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return; e.preventDefault(); const box = windowRef.current.getBoundingClientRect(); setPosition(clamp(box.left + (e.key === 'ArrowLeft' ? -20 : e.key === 'ArrowRight' ? 20 : 0), box.top + (e.key === 'ArrowUp' ? -20 : e.key === 'ArrowDown' ? 20 : 0))); }}><i className="live-dot" />{tab === 'public' ? '全局聊天' : tab === 'private' ? '私聊' : '我的教练'} <span>⠿</span></button><button className="chat-toggle" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>{expanded ? '↙' : '↗'}</button></div>
+  return <FloatingWindow as="aside" sizeKey={expanded} className={`chat-panel scene-chat ${expanded ? 'expanded' : 'compact'}`} header={<><i className="live-dot" /><span>{tab === 'public' ? '全局聊天' : tab === 'private' ? '私聊' : '我的教练'}</span><button className="chat-toggle" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>{expanded ? '↙' : '↗'}</button></>}>
     <div className="tabs">{[['public', '全局'], ['private', '私聊'], ...(coachEnabled ? [['coach', '我的教练']] : [])].map(([id, label]) => <button key={id} className={tab === id ? 'chosen' : ''} onClick={() => { setTab(id); setExpanded(true); }}>{label}</button>)}</div>
     {tab === 'private' && <div className="chat-recipient"><span>聊天对象</span><select value={recipient} onChange={e => setRecipient(+e.target.value)}>{state.seats.filter(s => s.id !== 0).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><small>仅双方可见</small></div>}
     {tab === 'coach' && <div className="coach-card"><img src={state.media.coach || '/asset/gpt/idle.png'} alt="教练" /><div><strong>{state.profiles['coach:0']?.name || '你的麻将教练'}</strong><button onClick={() => send('请分析我当前的手牌，给我一个行动建议。')} disabled={sending}>帮我看看这手牌 ↗</button></div></div>}
@@ -83,5 +64,5 @@ export function Chat({ state, run, readOnly = false }) {
     </div>
     {awayFromBottom && <button type="button" className="chat-latest" onClick={showLatest}>{unread ? '新消息' : '回到最新'} ↓</button>}
     {!readOnly && <form className="chat-compose" onSubmit={e => { e.preventDefault(); send(); }}><textarea aria-label="聊天消息" value={text} onChange={e => setText(e.target.value)} placeholder={tab === 'coach' ? '这张牌危险吗？' : '和牌友说点什么…'} maxLength={4000} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} /><div><small>Enter 发送 · Shift + Enter 换行</small><button className="send-button" disabled={!text.trim() || sending}>↑</button></div></form>}
-  </aside>;
+  </FloatingWindow>;
 }

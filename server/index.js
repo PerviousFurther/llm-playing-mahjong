@@ -6,13 +6,14 @@ import { resolve } from 'node:path';
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Room } from './room.js';
 import { Agents } from './agents.js';
-import { assetCatalog, mediaView } from './media.js';
-import { expressions, expressionAliases } from '../shared/agent.js';
+import { assetCatalog, characterImages } from './media.js';
+import { storagePaths } from './storage.js';
+import { expressions } from '../shared/agent.js';
 import { replayRecord, playableReplay } from './replay.js';
 import { validateRules } from '../shared/rules.js';
 
 const root = resolve(import.meta.dirname, '..');
-const dataDir = resolve(root, 'data'); mkdirSync(dataDir, { recursive: true }); mkdirSync(resolve(dataDir, 'uploads'), { recursive: true });
+const dataDir = storagePaths(root).data; mkdirSync(resolve(dataDir, 'uploads'), { recursive: true });
 const replayDir = resolve(dataDir, 'replays'); mkdirSync(replayDir, { recursive: true });
 const readJson = (name, fallback) => { try { return JSON.parse(readFileSync(resolve(dataDir, name), 'utf8')); } catch { return fallback; } };
 function saveJson(name, value) { const p = resolve(dataDir, name); writeFileSync(p + '.tmp', JSON.stringify(value)); renameSync(p + '.tmp', p); }
@@ -28,13 +29,9 @@ const port = Number(process.env.PORT || 3000);
 let agents, saveTimer;
 const catalog = assetCatalog(root);
 const expressionOptions = [...new Set([...expressions, ...Object.values(catalog).flatMap(asset => Object.keys(asset.images))])].filter(name => !['idle', 'thinking'].includes(name));
-let media = readJson('media.json', { background: '', characters: { 1: { idle: '/asset/gpt/gpt-idle.png', embarrassed: '/asset/gpt/gpt-embarrassed.png' }, 2: { idle: '/asset/gpt-mint/gpt-idle.png', thinking: '/asset/gpt-mint/gpt-thinking.png', happy: '/asset/gpt-mint/gpt-laugh.png', surprised: '/asset/gpt-mint/gpt-hello.png', embarrassed: '/asset/gpt-mint/gpt-unhappy.png' } }, coach: '/asset/gpt/gpt-idle.png' });
-media.characters[2] ||= { idle: '/asset/gpt-mint/gpt-idle.png', thinking: '/asset/gpt-mint/gpt-thinking.png', happy: '/asset/gpt-mint/gpt-laugh.png', surprised: '/asset/gpt-mint/gpt-hello.png', embarrassed: '/asset/gpt-mint/gpt-unhappy.png' };
-for (const images of Object.values(media.characters)) for (const [old, name] of Object.entries(expressionAliases)) { if (images[old]) { images[name] ||= images[old]; delete images[old]; } }
-for (const images of Object.values(media.characters)) for (const [expression, path] of Object.entries(images)) {
-  const group = path.match(/^\/asset\/([^/]+)\//)?.[1];
-  if (group && !existsSync(resolve(root, '.' + path)) && catalog[group]?.images[expression]) images[expression] = catalog[group].images[expression];
-}
+let media = readJson('media.json', { background: '', characters: { 1: { ...catalog.gpt?.images }, 2: { ...catalog['gpt-mint']?.images } }, coach: catalog.gpt?.images.idle || '' });
+media.characters[2] ||= { ...catalog['gpt-mint']?.images };
+for (const [seat, images] of Object.entries(media.characters)) media.characters[seat] = characterImages(images, catalog, root);
 if (media.coach === '/asset/gpt/gpt-idle.png') media.coach = catalog.gpt?.images.idle || '';
 function requireLobby() { if (room.game && !room.matchOver) throw new Error('请在对局结束后更改玩家和房规'); }
 const room = new Room({ expressionOptions, onChange: () => broadcast(), onDecision: (id, context) => agents?.decision(id, context),
@@ -66,10 +63,10 @@ app.use('/api', (req, res, next) => {
   if (!isOwner(req) || !originAllowed(req)) return res.status(403).json({ error: '需要本机管理员会话' });
   next();
 });
-function ownerView() { return { ...room.snapshot(0), replayId: room.replayId, observerPrivateEvents: room.allPrivateEvents(), agentStatus: agents.status, profiles: agents.publicProfiles(), media: mediaView(media, catalog) }; }
+function ownerView() { return { ...room.snapshot(0), replayId: room.replayId, observerPrivateEvents: room.allPrivateEvents(), agentStatus: agents.status, modelServices: agents.publicModelServices(), profiles: agents.publicProfiles(), media: { ...media, assetMetadata: catalog } }; }
 function broadcast() {
   if (!agents) return;
-  for (const ws of wss.clients) if (ws.readyState === 1 && ws.identity !== undefined) ws.send(JSON.stringify({ type: 'state', state: ws.identity === 'owner' ? ownerView() : room.snapshot(ws.identity) }));
+  for (const ws of wss.clients) if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'state', state: ownerView() }));
 }
 app.get('/api/state', (req, res) => res.json(ownerView()));
 app.post('/api/start', (req, res) => {
@@ -85,13 +82,14 @@ app.post('/api/pause', (req, res) => { if (req.body.paused) agents.syncVersion(t
 app.post('/api/seats', (req, res) => {
   requireLobby();
   const { seat, type } = req.body;
-  if (!Number.isInteger(seat) || seat < 0 || seat > 3 || !['human', 'bot', 'llm', 'external'].includes(type)) throw new Error('座位类型无效');
-  if (seat !== 0 && type === 'human') throw new Error('当前人类界面只控制座位 0，其余真人可使用外部 Agent 接口');
-  agents.reset(`player:${seat}`); if (seat === 0) agents.reset('coach:0'); room.seats[seat].type = type; room.acknowledgedRules[seat] = null; room.changed(); room.dispatch(); res.json({ accepted: true });
+  if (!Number.isInteger(seat) || seat < 0 || seat > 3 || !['human', 'bot', 'llm'].includes(type)) throw new Error('座位类型无效');
+  if (seat !== 0 && type === 'human') throw new Error('当前人类界面只控制座位 0');
+  agents.reset(`player:${seat}`); if (seat === 0) agents.reset('coach:0'); room.seats[seat].type = type; room.changed(); room.dispatch(); res.json({ accepted: true });
 });
 app.post('/api/profile', (req, res) => { agents.configure(req.body.seat, req.body.role, req.body.config); saveJson('profiles.json', agents.profiles); res.json(agents.publicProfiles()); });
 app.post('/api/retry', (req, res) => { agents.retry(req.body.seat, req.body.role); res.json({ accepted: true }); });
 app.post('/api/profile/check', (req, res) => { agents.check(req.body.seat, req.body.role); res.json({ accepted: true }); });
+app.post('/api/model-service/stop', async (req, res) => { await agents.stopModelService(req.body.seat, req.body.role); res.json({ accepted: true }); });
 app.post('/api/chat', (req, res) => {
   const { text, target = 'public', recipient } = req.body;
   if (target === 'coach' && room.seats[0].type !== 'human') throw new Error('由我游玩时才能使用教练');
@@ -102,12 +100,11 @@ app.post('/api/chat', (req, res) => {
   else {
     const recipients = target === 'public' && recipient === undefined ? room.seats.filter(s => s.id !== 0).map(s => s.id) : [id];
     for (const seat of recipients) {
-      if (room.seats[seat].type !== 'external' && room.seats[seat].type !== 'human') agents.task(seat, 'player', 'chat', room.context(seat), text, target === 'public' ? undefined : 0);
+      if (room.seats[seat].type !== 'human') agents.task(seat, 'player', 'chat', room.context(seat), text, target === 'public' ? undefined : 0);
     }
   }
   res.json({ accepted: true });
 });
-app.get('/api/agent-tokens', (req, res) => res.json(room.tokens.map((token, seat) => ({ seat, token }))));
 app.get('/api/replay', (req, res) => {
   if (!room.replayId) return res.status(400).json({ error: '对战结束后才能导出历史回放' });
   archiveCompletedMatch(room);
@@ -147,20 +144,6 @@ app.post('/api/media', (req, res) => {
   saveJson('media.json', media); broadcast(); res.json(media);
 });
 app.post('/api/media/reset', (req, res) => { media.background = ''; saveJson('media.json', media); broadcast(); res.json(media); });
-app.use('/agent', (req, res, next) => {
-  const token = req.headers.authorization?.replace(/^Bearer /, '');
-  const id = room.tokens.findIndex(t => safeEqual(token, t));
-  if (id < 0) return res.status(401).json({ error: '需要座位 Bearer token' });
-  req.seat = id; next();
-});
-app.get('/agent/context', (req, res) => res.json(room.context(req.seat)));
-app.post('/agent/ack', (req, res) => res.json(room.acknowledgeRules(req.seat, req.body.ruleId)));
-app.post('/agent/action', (req, res) => {
-  if (room.seats[req.seat].type !== 'external') throw new Error('该座位未设置为外部 Agent');
-  res.json(room.action(req.seat, req.body));
-});
-app.post('/agent/chat', (req, res) => res.json(room.chat(req.seat, req.body.text, req.body.target || 'public', 'agent')));
-app.post('/agent/expression', (req, res) => { room.expression(req.seat, req.body.expression); res.json({ accepted: true }); });
 app.use('/asset', express.static(resolve(root, 'asset')));
 app.use('/uploads', express.static(resolve(dataDir, 'uploads')));
 app.use(express.static(resolve(root, 'public')));
@@ -175,20 +158,11 @@ if (process.argv.includes('--production')) {
 app.use((error, req, res, next) => { if (!res.headersSent) res.status(400).json({ error: error.message }); else next(error); });
 server.on('upgrade', (req, socket, head) => {
   if (req.url !== '/live') return; // Vite owns its HMR upgrade route.
-  if (!originAllowed(req)) { socket.destroy(); return; }
+  if (!originAllowed(req) || !isOwner(req)) { socket.destroy(); return; }
   wss.handleUpgrade(req, socket, head, ws => {
-    if (isOwner(req)) { ws.identity = 'owner'; ws.send(JSON.stringify({ type: 'state', state: ownerView() })); }
-    ws.on('message', raw => {
-      try {
-        const msg = JSON.parse(raw.toString());
-        if (ws.identity !== undefined || msg.type !== 'auth') return;
-        const seat = room.tokens.findIndex(t => safeEqual(msg.token, t));
-        if (seat < 0) { ws.close(1008, 'Invalid token'); return; }
-        ws.identity = seat; ws.send(JSON.stringify({ type: 'state', state: room.snapshot(seat) }));
-      } catch { ws.close(1008, 'Invalid message'); }
-    });
+    ws.send(JSON.stringify({ type: 'state', state: ownerView() }));
   });
 });
 server.listen(port, '127.0.0.1', () => console.log(`雀伴已启动：http://localhost:${port}${saved ? '（存档已加载，点击继续）' : ''}`));
-function shutdown() { clearTimeout(saveTimer); archiveCompletedMatch(room); saveJson('game.json', room.serialize()); agents.close(); server.close(); process.exit(0); }
+async function shutdown() { clearTimeout(saveTimer); archiveCompletedMatch(room); saveJson('game.json', room.serialize()); await agents.close({ models: true }); server.close(); process.exit(0); }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

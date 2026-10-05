@@ -12,8 +12,8 @@ export function CharacterPanel({ state, seat, run, onClose }) {
   const current = state.media.characters[seat]?.idle;
   return <><div className="modal-heading"><small>{player.wind} · {player.score.toLocaleString()} 点</small><h2>{player.name}</h2></div>
     {player.type !== 'bot' && status?.error && <ConnectionStatus status={status} label={role === 'coach' ? '教练连接' : '牌友连接'} />}
-    <div className="character-options"><label>游玩方式<select disabled={locked} value={player.type} onChange={e => run(() => api('seats', { seat, type: e.target.value }))}>{seat === 0 && <option value="human">由我游玩</option>}<option value="bot">本地牌友</option><option value="llm">LLM 自动游玩</option><option value="external">外部 Agent</option></select></label>
-      {player.type !== 'bot' && <button className="secondary" onClick={() => setPage(player.type === 'external' ? 'agents' : 'models')}>{player.type === 'human' ? '设置教练' : locked ? '查看连接' : '设置连接'} ↗</button>}</div>
+    <div className="character-options"><label>游玩方式<select disabled={locked} value={player.type} onChange={e => run(() => api('seats', { seat, type: e.target.value }))}>{seat === 0 && <option value="human">由我游玩</option>}<option value="bot">本地牌友</option><option value="llm">LLM 自动游玩</option></select></label>
+      {player.type !== 'bot' && <button className="secondary" onClick={() => setPage('models')}>{player.type === 'human' ? '设置教练' : locked ? '查看连接' : '设置连接'} ↗</button>}</div>
     <div className="portrait-gallery">{Object.entries(state.media.assetMetadata || {}).filter(([, asset]) => asset.images?.idle).map(([id, asset]) => <button key={id} className={current === asset.images.idle ? 'chosen' : ''} onClick={() => run(() => api('media/select', { seat, asset: id }))} aria-pressed={current === asset.images.idle}><img src={asset.images.idle} alt={asset.name || id} /><span>{asset.name || id}</span></button>)}</div>
     <button className="text-button" onClick={() => setPage('portrait')}>＋ 导入立绘</button>
     {locked && <small className="locked-label">对局中 · 玩家已锁定</small>}

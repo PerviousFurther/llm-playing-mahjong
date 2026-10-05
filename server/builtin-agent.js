@@ -1,28 +1,14 @@
 import Majiang from '@kobalab/majiang-core';
+import { analyzeActions } from './agent-analysis.js';
 
 function choose(context) {
   const s = context.state, actions = s.legalActions;
   if (s.canWin) return { action: 'declare_win', expression: 'laugh' };
   const other = actions.find(x => x.action === 'riichi') || actions.find(x => x.action === 'continue');
   if (other) return other;
-  const hand = Majiang.Shoupai.fromString(s.seats[s.viewer].handString || '');
-  const discards = actions.filter(x => x.action === 'discard');
-  if (discards.length) {
-    const scored = discards.map(a => {
-      const h = hand.clone().dapai(a.value);
-      const shanten = Majiang.Util.xiangting(h);
-      let effective = 0;
-      for (const p of Majiang.Util.tingpai(h)) {
-        let seen = h._bingpai[p[0]][+p[1] || 5];
-        for (const seat of s.seats) {
-          seen += seat.discards.filter(x => x.slice(0,2).replace('0','5') === p).length;
-          for (const meld of seat.melds) if (meld[0] === p[0]) seen += (meld.slice(1).replace(/0/g,'5').match(new RegExp(p[1], 'g')) || []).length;
-        }
-        effective += Math.max(0, 4 - seen);
-      }
-      return { a, score: shanten * 100 - effective };
-    });
-    scored.sort((a, b) => a.score - b.score); return scored[0].a;
+  if (actions.some(a => a.action === 'discard')) {
+    const best = analyzeActions(s, 'discard', '', 1).candidates[0];
+    return { action: best.action, value: best.value };
   }
   return actions.find(x => x.action === 'pass') || actions[0];
 }

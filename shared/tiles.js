@@ -8,3 +8,9 @@ export function tileName(code) {
 export function readableTiles(text) {
   return text.replace(/(?<![a-zA-Z0-9])(?:[mps][0-9]|z[1-7])[_*]?(?![a-zA-Z0-9])/g, tileName);
 }
+export function tileFile(code) {
+  if (!code || code === '_') return 'Back';
+  const [s, n] = code;
+  if (s === 'z') return ['Ton', 'Nan', 'Shaa', 'Pei', 'Haku', 'Hatsu', 'Chun'][Number(n) - 1];
+  return `${{ m: 'Man', p: 'Pin', s: 'Sou' }[s]}${n === '0' ? '5-Dora' : n}`;
+}

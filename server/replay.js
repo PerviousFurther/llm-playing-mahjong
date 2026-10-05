@@ -1,5 +1,6 @@
 import Majiang from '@kobalab/majiang-core';
 import { handTiles } from './room.js';
+import { elapsedTime, recordStart } from '../shared/event-time.js';
 
 const winds = ['东', '南', '西', '北'];
 const labels = { qipai: '发牌', zimo: '摸牌', gangzimo: '岭上摸牌', dapai: '打牌', fulou: '吃碰杠', gang: '杠', kaigang: '翻宝牌', hule: '和牌', pingju: '流局', false_win: '诈胡', jieju: '对局结束' };
@@ -8,13 +9,13 @@ const labels = { qipai: '发牌', zimo: '摸牌', gangzimo: '岭上摸牌', dapa
 // This data is only served to the local owner, never to an agent.
 export function replayRecord(room) {
   const paipu = room.game?._paipu;
-  return { schema: 1, rules: room.rules, seats: room.seats, paipu,
+  return { schema: 1, rules: room.rules, seats: room.seats, paipu, matchStartedAt: room.matchStartedAt,
     events: room.events, allPrivateEvents: room.allPrivateEvents(Infinity),
     myPrivateEvents: room.privateEvents[0], myCoachEvents: room.coachEvents,
     state: room.snapshot(0) };
 }
 
-export function replayFrames(record) {
+function replayFrames(record) {
   const p = record.paipu;
   if (!p?.log?.length) return [];
   const board = new Majiang.Board({ title: p.title, player: p.player, qijia: p.qijia });
@@ -37,7 +38,7 @@ export function replayFrames(record) {
           melds: [...(hand?._fulou || [])], discards: [...(board.he[l]?._pai || [])],
           revealed: true, riichi: !!hand?.lizhi };
       }) };
-    frames.push({ label: labels[phase] || phase, eventId, state: JSON.parse(JSON.stringify(state)) });
+    frames.push({ label: labels[phase] || phase, eventId, at: events[next]?.at, state: JSON.parse(JSON.stringify(state)) });
   };
   for (const [handIndex, log] of p.log.entries()) {
     result = null;
@@ -69,16 +70,17 @@ export function playableReplay(record) {
   const actions = replayFrames(record);
   if (!actions.length) return { ...record, frames: [] };
   const messages = [...new Map([...(record.events || []), ...(record.allPrivateEvents || []), ...(record.myCoachEvents || [])]
-    .filter(e => e.type === 'chat').map(e => [e.id, e])).values()].sort((a, b) => a.id - b.id);
+    .filter(e => ['chat', 'memory'].includes(e.type)).map(e => [e.id, e])).values()].sort((a, b) => a.id - b.id);
   const frames = [];
   let cursor = 0, previous = actions[0];
   for (const action of actions) {
     while (cursor < messages.length && messages[cursor].id < action.eventId) {
       const message = messages[cursor++];
-      frames.push({ ...previous, label: '聊天', eventId: message.id, at: message.at });
+      frames.push({ ...previous, label: message.type === 'memory' ? '记忆更新' : '聊天', eventId: message.id, at: message.at });
     }
     frames.push(action); previous = action;
   }
-  for (const message of messages.slice(cursor)) frames.push({ ...previous, label: '聊天', eventId: message.id, at: message.at });
-  return { ...record, frames };
+  for (const message of messages.slice(cursor)) frames.push({ ...previous, label: message.type === 'memory' ? '记忆更新' : '聊天', eventId: message.id, at: message.at });
+  const matchStartedAt = recordStart(record);
+  return { ...record, matchStartedAt, frames: frames.map(frame => ({ ...frame, elapsed: elapsedTime(frame.at, matchStartedAt) })) };
 }

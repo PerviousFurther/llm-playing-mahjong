@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { agentLaunch } from './agent-launch.js';
 import { replyTarget } from '../shared/agent.js';
-import { agentContext, compactRules } from './agent-context.js';
+import { initialContext } from './agent-context.js';
 
 export function proxyAddress(value) {
   const address = String(value || '').trim();
@@ -47,6 +47,6 @@ export function terminateAgent(child) {
 
 export function taskInput(task) {
   return { type: 'task', id: task.id, seat: task.seat, role: task.role, mode: task.mode,
-    context: { ...agentContext(task.context), rules: compactRules(task.context.state.rules) }, text: task.text || '', replyTarget: replyTarget(task),
+    context: initialContext(task.context, task.mode), text: task.text || '', replyTarget: replyTarget(task),
     persona: { name: task.config.name, personality: task.config.personality } };
 }

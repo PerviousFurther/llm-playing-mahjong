@@ -1,6 +1,8 @@
 node_modules/
 dist/
 data/
+feedback/
 .env
 *.log
 shortcut/*/my-start.ps1
+.reference-qqbot/
